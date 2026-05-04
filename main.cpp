@@ -1,100 +1,125 @@
 #include <SFML/Graphics.hpp>
 #include <thread>
+#include <iostream>
 #include "world.h"
 
 void worker();
 
-const int TILE_SIZE = 40;
-const float ROBOT_SPEED = 6.0f;
-
 int main() {
-    // Инициализация сетки и объектов[cite: 1]
-    for (int y = 0; y < (int)grid.size(); y++) {
-        for (int x = 0; x < (int)grid[y].size(); x++) {
-            if (grid[y][x] == 'A') baseA = {x, y};
-            if (grid[y][x] == 'B') baseB = {x, y};
-            if (grid[y][x] == 'O') {
-                objects.push_back({{x, y}, -1, false});
-                grid[y][x] = '.'; // Очищаем клетку для прохода роботов
-            }
-        }
-    }
+    scanMapDirectory();
+    resetWorld();
 
-    // Инициализация роботов[cite: 1]
-    robots.push_back({0, {40, 40}, {1, 1}, -1, false, 0});
-    robots.push_back({1, {80, 40}, {2, 1}, -1, false, 0});
-    robots.push_back({2, {40, 320}, {1, 8}, -1, false, 1});
-    robots.push_back({3, {80, 320}, {2, 8}, -1, false, 1});
+    sf::RenderWindow window(sf::VideoMode({1050, 600}), "BFS vs A-Star");
+    window.setFramerateLimit(60);
+
+    sf::Font font;
+    if (!font.openFromFile("arial.ttf")) {
+        std::cerr << "Error: Could not load arial.ttf" << std::endl;
+    }
 
     std::thread t(worker);
     t.detach();
-
-    sf::RenderWindow window(
-            sf::VideoMode({(unsigned)grid[0].size() * TILE_SIZE, (unsigned)grid.size() * TILE_SIZE}),
-            "Robot Warehouse"
-    );
-    window.setFramerateLimit(60);
     sf::Clock clock;
 
     while (window.isOpen()) {
         float dt = clock.restart().asSeconds();
-        while (auto e = window.pollEvent()) {
-            if (e->is<sf::Event::Closed>()) window.close();
+        while (const std::optional event = window.pollEvent()) {
+            if (event->is<sf::Event::Closed>()) window.close();
+
+            if (const auto* mB = event->getIf<sf::Event::MouseButtonPressed>()) {
+                sf::Vector2f mPos = {(float)mB->position.x, (float)mB->position.y};
+
+                // Клик по картам
+                for (int i = 0; i < (int)map_filenames.size(); i++) {
+                    if (sf::FloatRect({810.f, 50.f + i*50.f}, {230.f, 40.f}).contains(mPos)) {
+                        selected_map_idx = i;
+                        resetWorld();
+                    }
+                }
+                // Клик по алгоритмам
+                for (int i = 0; i < (int)algo_names.size(); i++) {
+                    if (sf::FloatRect({810.f, 400.f + i*50.f}, {230.f, 40.f}).contains(mPos)) {
+                        current_algo = (Algorithm)i;
+                        simulationStarted = true;
+                    }
+                }
+            }
         }
 
-        window.clear(sf::Color(25, 25, 25));
+        window.clear(sf::Color(30, 30, 30));
 
-        // Отрисовка пола и стен[cite: 1]
+        // Отрисовка сетки
         for (int y = 0; y < (int)grid.size(); y++) {
-            for (int x = 0; x < (int)grid[0].size(); x++) {
-                sf::RectangleShape tile({TILE_SIZE - 1.f, TILE_SIZE - 1.f});
-                tile.setPosition({x * TILE_SIZE * 1.f, y * TILE_SIZE * 1.f});
-                tile.setFillColor(grid[y][x] == '#' ? sf::Color(60, 60, 60) : sf::Color(40, 40, 40));
+            for (int x = 0; x < (int)grid[y].size(); x++) {
+                sf::RectangleShape tile({39.f, 39.f});
+                tile.setPosition({(float)x*40.f, (float)y*40.f});
+                tile.setFillColor(grid[y][x] == '#' ? sf::Color(70, 70, 70) : sf::Color(45, 45, 45));
                 window.draw(tile);
             }
         }
 
         // Отрисовка баз
-        auto drawBase = [&](Pos p, sf::Color color) {
-            sf::RectangleShape b({TILE_SIZE - 8.f, TILE_SIZE - 8.f});
-            b.setPosition({(float)p.x * TILE_SIZE + 4.f, (float)p.y * TILE_SIZE + 4.f});
-            b.setFillColor(sf::Color(color.r, color.g, color.b, 40));
-            b.setOutlineThickness(2);
-            b.setOutlineColor(color);
-            window.draw(b);
-        };
-        drawBase(baseA, sf::Color::Cyan);
-        drawBase(baseB, sf::Color::Magenta);
-
-        // Отрисовка свободных коробок
-        for (auto &obj : objects) {
-            if (obj.delivered || obj.carrierId != -1) continue;
-            sf::RectangleShape oShape({18, 18});
-            oShape.setOrigin({9, 9});
-            oShape.setPosition({(float)obj.pos.x * TILE_SIZE + 20, (float)obj.pos.y * TILE_SIZE + 20});
-            oShape.setFillColor(sf::Color::Yellow);
-            window.draw(oShape);
+        for (auto& b : deliveryPoints) {
+            sf::RectangleShape s({32.f, 32.f});
+            s.setPosition({(float)b.x*40.f + 4.f, (float)b.y*40.f + 4.f});
+            s.setOutlineColor(sf::Color::Cyan);
+            s.setOutlineThickness(2);
+            s.setFillColor(sf::Color(0, 255, 255, 50));
+            window.draw(s);
         }
 
-        // Отрисовка роботов и груза[cite: 1]
+        // Отрисовка роботов
         for (auto &r : robots) {
-            sf::Vector2f target(r.gridPos.x * TILE_SIZE + 20.f, r.gridPos.y * TILE_SIZE + 20.f);
-            r.realPos += (target - r.realPos) * dt * ROBOT_SPEED;
-
-            sf::CircleShape rShape(14);
-            rShape.setOrigin({14, 14});
-            rShape.setPosition(r.realPos);
-            rShape.setFillColor(r.team ? sf::Color::Magenta : sf::Color::Cyan);
-            window.draw(rShape);
-
-            if (r.hasObject) { // Отрисовка коробки на роботе
-                sf::RectangleShape cargo({12, 12});
-                cargo.setOrigin({6, 6});
-                cargo.setPosition(r.realPos);
-                cargo.setFillColor(sf::Color::Yellow);
-                window.draw(cargo);
-            }
+            sf::Vector2f target((float)r.gridPos.x*40.f + 20.f, (float)r.gridPos.y*40.f + 20.f);
+            r.realPos += (target - r.realPos) * dt * 8.0f;
+            sf::CircleShape rs(14.f);
+            rs.setOrigin({14.f, 14.f});
+            rs.setPosition(r.realPos);
+            rs.setFillColor(sf::Color::Cyan);
+            window.draw(rs);
         }
+
+        // Отрисовка коробок
+        for (auto &obj : objects) {
+            if (obj.delivered) continue;
+            sf::RectangleShape o({18.f, 18.f});
+            o.setOrigin({9.f, 9.f});
+            if (obj.carrierId != -1) {
+                for (auto& r : robots) if (r.id == obj.carrierId) o.setPosition(r.realPos);
+            }
+            else {
+                o.setPosition({(float)obj.pos.x*40.f + 20.f, (float)obj.pos.y*40.f + 20.f});
+            }
+            o.setFillColor(sf::Color::Yellow);
+            window.draw(o);
+        }
+
+        // Правое меню
+        sf::RectangleShape mBg({250.f, 600.f});
+        mBg.setPosition({800.f, 0.f});
+        mBg.setFillColor(sf::Color(50, 50, 50));
+        window.draw(mBg);
+
+        // Список карт (названия)
+        for (int i = 0; i < (int)map_filenames.size(); i++) {
+            sf::Text mt(font, map_filenames[i].substr(map_filenames[i].find_last_of("/\\") + 1), 14);
+            mt.setPosition({820.f, 60.f + i*50.f});
+            window.draw(mt);
+        }
+
+        // Кнопки алгоритмов
+        for (int i = 0; i < (int)algo_names.size(); i++) {
+            sf::RectangleShape btn({230.f, 40.f});
+            btn.setPosition({810.f, 400.f + i*50.f});
+            btn.setFillColor((int)current_algo == i ? sf::Color(255, 140, 0) : sf::Color(70, 70, 70));
+            window.draw(btn);
+
+            sf::Text t(font, algo_names[i], 16);
+            t.setPosition({820.f, 410.f + i*50.f});
+            window.draw(t);
+        }
+
         window.display();
     }
+    return 0;
 }

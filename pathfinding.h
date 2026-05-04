@@ -1,11 +1,7 @@
 #pragma once
+#include "world.h"
 #include <vector>
 #include <set>
 #include <tuple>
-#include "world.h"
 
-std::vector<Pos> findPath(
-        Pos start,
-        Pos goal,
-        const std::set<std::tuple<int, int, int>>& reserved
-);
+std::vector<Pos> findPath(Pos start, Pos goal, const std::set<std::tuple<int, int, int>>& reserved, Algorithm algo);
