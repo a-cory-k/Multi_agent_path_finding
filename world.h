@@ -4,7 +4,7 @@
 #include <set>
 #include <tuple>
 #include <SFML/Graphics.hpp>
-extern bool simulationStarted;
+
 struct Pos {
     int x, y;
     bool operator==(const Pos& o) const { return x == o.x && y == o.y; }
@@ -14,7 +14,13 @@ struct Pos {
 struct Object {
     Pos pos;
     int carrierId = -1;
+    int reservedBy = -1;
     bool delivered = false;
+};
+
+struct DeliveryPoint {
+    Pos pos;
+    int ownerId = -1;
 };
 
 struct Robot {
@@ -24,6 +30,8 @@ struct Robot {
     int targetObjIdx = -1;
     bool hasObject = false;
     std::vector<Pos> path;
+    sf::Color color;
+    float priority = 0.0f;
 };
 
 enum class Algorithm { BFS, ASTAR };
@@ -34,12 +42,12 @@ extern std::vector<std::string> grid;
 extern std::vector<std::string> map_filenames;
 extern std::vector<Object> objects;
 extern std::vector<Robot> robots;
-extern std::vector<Pos> deliveryPoints;
+extern std::vector<DeliveryPoint> deliveryPoints;
 extern std::set<std::tuple<int, int, int>> reserved;
 extern int selected_map_idx;
+extern bool simulationStarted;
 
 bool is_free(int x, int y);
 void updateLogic();
 void scanMapDirectory();
-bool loadMapFromFile(const std::string& filename);
 void resetWorld();

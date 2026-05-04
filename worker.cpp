@@ -4,9 +4,7 @@
 
 void worker() {
     while (true) {
-        if (simulationStarted) {
-            updateLogic();
-        }
+        if (simulationStarted) updateLogic();
         std::this_thread::sleep_for(std::chrono::milliseconds(200));
     }
 }

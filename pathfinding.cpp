@@ -1,7 +1,6 @@
 #include "pathfinding.h"
 #include <queue>
 #include <map>
-#include <cmath>
 
 struct Node {
     int x, y, t;
@@ -9,7 +8,7 @@ struct Node {
     bool operator>(const Node& o) const { return f > o.f; }
 };
 
-float heuristic(int x1, int y1, int x2, int y2) {
+float getH(int x1, int y1, int x2, int y2) {
     return (float)(std::abs(x1 - x2) + std::abs(y1 - y2));
 }
 
@@ -17,62 +16,51 @@ std::vector<Pos> findPath(Pos start, Pos goal, const std::set<std::tuple<int, in
     if (start == goal) return {};
 
     using State = std::tuple<int, int, int>;
+    std::priority_queue<Node, std::vector<Node>, std::greater<Node>> pq;
     std::map<State, State> parent;
     std::map<State, float> gScore;
 
-    int dx[] = {0, 1, -1, 0, 0, 0};
-    int dy[] = {0, 0, 0, 1, -1, 0};
+    pq.push({start.x, start.y, 0, getH(start.x, start.y, goal.x, goal.y), 0});
+    gScore[{start.x, start.y, 0}] = 0;
 
-    if (algo == Algorithm::ASTAR) {
-        std::priority_queue<Node, std::vector<Node>, std::greater<Node>> pq;
-        pq.push({start.x, start.y, 0, heuristic(start.x, start.y, goal.x, goal.y), 0});
-        gScore[{start.x, start.y, 0}] = 0;
+    int dx[] = {0, 1, -1, 0, 0};
+    int dy[] = {0, 0, 0, 1, -1};
 
-        while (!pq.empty()) {
-            Node curr = pq.top(); pq.pop();
-            if (curr.x == goal.x && curr.y == goal.y) {
-                std::vector<Pos> res;
-                State s = {curr.x, curr.y, curr.t};
-                while (parent.count(s)) { res.push_back({std::get<0>(s), std::get<1>(s)}); s = parent[s]; }
-                return res;
+    while (!pq.empty()) {
+        Node curr = pq.top(); pq.pop();
+
+        if (curr.x == goal.x && curr.y == goal.y) {
+            std::vector<Pos> path;
+            State s = {curr.x, curr.y, curr.t};
+            while (parent.count(s)) {
+                path.push_back({std::get<0>(s), std::get<1>(s)});
+                s = parent[s];
             }
-            if (curr.t > 60) continue;
-
-            for (int i = 0; i < 6; i++) {
-                int nx = curr.x + dx[i], ny = curr.y + dy[i], nt = curr.t + 1;
-                if (is_free(nx, ny) && !reserved.count({nx, ny, nt})) {
-                    float next_g = curr.g + (i == 0 ? 0.5f : 1.0f);
-                    State nextS = {nx, ny, nt};
-                    if (!gScore.count(nextS) || next_g < gScore[nextS]) {
-                        gScore[nextS] = next_g;
-                        parent[nextS] = {curr.x, curr.y, curr.t};
-                        pq.push({nx, ny, nt, next_g + heuristic(nx, ny, goal.x, goal.y), next_g});
-                    }
-                }
-            }
+            return path;
         }
-    } else { // BFS
-        std::queue<Node> q;
-        q.push({start.x, start.y, 0, 0, 0});
-        std::set<State> visited;
-        visited.insert({start.x, start.y, 0});
 
-        while (!q.empty()) {
-            Node curr = q.front(); q.pop();
-            if (curr.x == goal.x && curr.y == goal.y) {
-                std::vector<Pos> res;
-                State s = {curr.x, curr.y, curr.t};
-                while (parent.count(s)) { res.push_back({std::get<0>(s), std::get<1>(s)}); s = parent[s]; }
-                return res;
-            }
-            if (curr.t > 60) continue;
+        if (curr.t > 30) continue; // Оптимальный горизонт
 
-            for (int i = 0; i < 6; i++) {
-                int nx = curr.x + dx[i], ny = curr.y + dy[i], nt = curr.t + 1;
-                if (is_free(nx, ny) && !reserved.count({nx, ny, nt}) && !visited.count({nx, ny, nt})) {
-                    visited.insert({nx, ny, nt});
-                    parent[{nx, ny, nt}] = {curr.x, curr.y, curr.t};
-                    q.push({nx, ny, nt, 0, 0});
+        for (int i = 0; i < 5; i++) {
+            int nx = curr.x + dx[i];
+            int ny = curr.y + dy[i];
+            int nt = curr.t + 1;
+
+            if (is_free(nx, ny)) {
+                // Vertex Conflict[cite: 3]
+                if (reserved.count({nx, ny, nt})) continue;
+
+                // Edge Conflict (защита от столкновений в лоб)[cite: 3]
+                if (i != 0 && reserved.count({nx, ny, curr.t}) && reserved.count({curr.x, curr.y, nt})) continue;
+
+                float moveCost = (i == 0) ? 1.1f : 1.0f; // Ожидание лишь чуть дороже движения
+                float next_g = curr.g + moveCost;
+                State ns = {nx, ny, nt};
+
+                if (!gScore.count(ns) || next_g < gScore[ns]) {
+                    gScore[ns] = next_g;
+                    parent[ns] = {curr.x, curr.y, curr.t};
+                    pq.push({nx, ny, nt, next_g + getH(nx, ny, goal.x, goal.y), next_g});
                 }
             }
         }
