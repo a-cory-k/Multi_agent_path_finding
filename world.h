@@ -34,7 +34,7 @@ struct Robot {
     float priority = 0.0f;
 };
 
-enum class Algorithm { BFS, ASTAR };
+enum class Algorithm { Dijkstra, ASTAR };
 
 extern Algorithm current_algo;
 extern std::vector<std::string> algo_names;

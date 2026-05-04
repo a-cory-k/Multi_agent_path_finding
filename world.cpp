@@ -12,7 +12,7 @@ std::vector<Robot> robots;
 std::vector<DeliveryPoint> deliveryPoints;
 std::set<std::tuple<int, int, int>> reserved;
 Algorithm current_algo = Algorithm::ASTAR;
-std::vector<std::string> algo_names = {"BFS", "A-Star"};
+std::vector<std::string> algo_names = {"Dijkstra", "A-Star"};
 int selected_map_idx = 0;
 bool simulationStarted = false;
 
@@ -48,7 +48,7 @@ void resetWorld() {
     for (int y = 0; y < (int)grid.size(); y++) {
         for (int x = 0; x < (int)grid[y].size(); x++) {
             char c = grid[y][x];
-            if (c >= 'A' && c <= 'Z' && c != 'R' && c != 'O') deliveryPoints.push_back({{x, y}, rCount++ % 10}); // Упрощенно
+            if (c >= 'A' && c <= 'Z' && c != 'R' && c != 'O') deliveryPoints.push_back({{x, y}, rCount++ % 10});
             else if (c == 'O') { objects.push_back({{x, y}, -1, -1, false}); grid[y][x] = '.'; }
             else if (c == 'R') {
                 robots.push_back({ (int)robots.size(), {(float)x * 40 + 20, (float)y * 40 + 20}, {x, y}, -1, false, {}, getNiceColor((int)robots.size()) });
@@ -60,7 +60,6 @@ void resetWorld() {
 
 void updateLogic() {
     if (!simulationStarted) return;
-
 
     reserved.clear();
 

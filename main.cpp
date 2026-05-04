@@ -8,21 +8,15 @@ void worker();
 
 int main() {
     scanMapDirectory();
-    if (map_filenames.empty()) {
-        std::cerr << "CRITICAL: No maps found in 'maps/' folder!" << std::endl;
-    } else {
-        std::cout << "Loaded " << map_filenames.size() << " maps." << std::endl;
-    }
+    std::cout << "Loaded " << map_filenames.size() << " maps." << std::endl;
 
     resetWorld();
 
-    sf::RenderWindow window(sf::VideoMode({1050, 600}), "Warehouse MAPF SFML 3");
+    sf::RenderWindow window(sf::VideoMode({1050, 600}), "MAPF");
     window.setFramerateLimit(60);
 
     sf::Font font;
-    if (!font.openFromFile("arial.ttf")) {
-        std::cerr << "CRITICAL: Could not load arial.ttf! Place it next to the executable." << std::endl;
-    }
+    font.openFromFile("arial.ttf");
 
     std::thread t{worker};
     t.detach();
@@ -41,7 +35,6 @@ int main() {
                     if (sf::FloatRect({810.f, 60.f + i * 40.f}, {230.f, 30.f}).contains(mPos)) {
                         selected_map_idx = i;
                         resetWorld();
-                        std::cout << "Switched to map: " << map_filenames[i] << std::endl;
                     }
                 }
 
@@ -49,7 +42,6 @@ int main() {
                     if (sf::FloatRect({810.f, 400.f + i * 50.f}, {230.f, 40.f}).contains(mPos)) {
                         current_algo = (Algorithm)i;
                         simulationStarted = true;
-                        std::cout << "Started simulation with: " << algo_names[i] << std::endl;
                     }
                 }
             }
