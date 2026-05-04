@@ -5,7 +5,6 @@
 #include <algorithm>
 #include <cmath>
 
-// Инициализация переменных[cite: 2]
 std::vector<std::string> grid;
 std::vector<std::string> map_filenames;
 std::vector<Object> objects;
@@ -62,11 +61,10 @@ void resetWorld() {
 void updateLogic() {
     if (!simulationStarted) return;
 
-    // Очищаем брони перед каждым тактом, чтобы актуализировать позиции[cite: 3]
+
     reserved.clear();
 
     for (auto &r : robots) {
-        // Синхронизация: если визуально еще далеко, считаем, что робот все еще в этой клетке
         sf::Vector2f targetRealPos((float)r.gridPos.x * 40 + 20, (float)r.gridPos.y * 40 + 20);
         float dist = std::sqrt(std::pow(targetRealPos.x - r.realPos.x, 2) + std::pow(targetRealPos.y - r.realPos.y, 2));
 
@@ -75,18 +73,14 @@ void updateLogic() {
             continue;
         }
 
-        // Выбор цели[cite: 1]
-        // --- ИСПРАВЛЕННЫЙ ВЫБОР ЦЕЛИ ---
         Pos goal = r.gridPos;
         bool foundTarget = false;
 
         if (r.hasObject) {
-            // Если несем груз - ищем свою базу
             for (auto& b : deliveryPoints) {
                 if (b.ownerId == r.id) { goal = b.pos; foundTarget = true; break; }
             }
         } else {
-            // Если пустые - ищем ближайшую коробку
             int bestIdx = -1; float minDist = 1e9;
             for (int i = 0; i < (int)objects.size(); i++) {
                 if (!objects[i].delivered && objects[i].carrierId == -1) {
@@ -100,14 +94,12 @@ void updateLogic() {
                 r.targetObjIdx = bestIdx;
                 foundTarget = true;
             } else {
-                // КРИТИЧНО: Если коробок нет, целью становится база![cite: 1]
                 for (auto& b : deliveryPoints) {
                     if (b.ownerId == r.id) { goal = b.pos; foundTarget = true; break; }
                 }
             }
         }
 
-        // Поиск пути с учетом бронирования ПРЕДЫДУЩИХ (более приоритетных) роботов
         std::vector<Pos> nextPath = findPath(r.gridPos, goal, reserved, current_algo);
 
         if (!nextPath.empty()) {
@@ -116,12 +108,10 @@ void updateLogic() {
             r.path.pop_back();
         }
 
-        // КРИТИЧНО: Бронируем клетку, которую заняли, для следующих роботов в этом цикле[cite: 3]
         for (int t = 1; t < 10; t++) {
             reserved.insert({r.gridPos.x, r.gridPos.y, t});
         }
 
-        // Логика предметов
         if (!r.hasObject && r.targetObjIdx != -1 && r.gridPos == objects[r.targetObjIdx].pos) {
             r.hasObject = true; objects[r.targetObjIdx].carrierId = r.id; r.path.clear();
         }

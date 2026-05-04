@@ -39,7 +39,7 @@ std::vector<Pos> findPath(Pos start, Pos goal, const std::set<std::tuple<int, in
             return path;
         }
 
-        if (curr.t > 30) continue; // Оптимальный горизонт
+        if (curr.t > 30) continue;
 
         for (int i = 0; i < 5; i++) {
             int nx = curr.x + dx[i];
@@ -47,13 +47,11 @@ std::vector<Pos> findPath(Pos start, Pos goal, const std::set<std::tuple<int, in
             int nt = curr.t + 1;
 
             if (is_free(nx, ny)) {
-                // Vertex Conflict[cite: 3]
                 if (reserved.count({nx, ny, nt})) continue;
 
-                // Edge Conflict (защита от столкновений в лоб)[cite: 3]
                 if (i != 0 && reserved.count({nx, ny, curr.t}) && reserved.count({curr.x, curr.y, nt})) continue;
 
-                float moveCost = (i == 0) ? 1.1f : 1.0f; // Ожидание лишь чуть дороже движения
+                float moveCost = (i == 0) ? 1.1f : 1.0f;
                 float next_g = curr.g + moveCost;
                 State ns = {nx, ny, nt};
 
